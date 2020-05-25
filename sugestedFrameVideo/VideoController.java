@@ -36,7 +36,12 @@ public class VideoController {
 	private ImageView muteBtImg;
 
 	private Bounds vidSubBounds;
-
+	
+	@Override
+		public void initialize(URL arg0, ResourceBundle arg1) {
+			// TODO Auto-generated method stub
+			subtitleLB.setOpacity(0);
+		}
 	// Play button control
 	@FXML
 	public void play(ActionEvent event) {
@@ -100,8 +105,15 @@ public class VideoController {
 	}
 
 	public void captionOn(ActionEvent event) throws IOException, InterruptedException {
-		// TODO: turn on captions
-		//need .srt file, .srt parser and implementation onto the video
+			if(subtitleLB.getOpacity() > 0) {
+				subtitleLB.setOpacity(0);
+				System.out.println("subtitle off");
+			}
+			else {
+				subtitleLB.setOpacity(1);
+				System.out.println("subtitle on");
+			}
+		}
 	}
 
 	// Mute and unmute the audio
