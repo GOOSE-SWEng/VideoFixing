@@ -1,28 +1,24 @@
 package media;
+/**
+ * Class for the audio handler
+ * @author - Rimas Radziunas and Cezara-Lidia Jalba
+ * @version - 1.1
+ * @date - 21/05/20
+ */
 
+// 1 block of subtitle
 public class SubtitleBlock {
-	private int index;
 	private double startTime;
 	private double endTime;
 	private String text;
-	
-	
+
 	public SubtitleBlock() {
-		
 	}
-
-	public int getIndex() {
-		return index;
-	}
-
-	public void setIndex(int index) {
-			this.index = index;
-			}
 
 	public double getStartTime() {
 		return startTime;
 	}
-
+	
 	public void setTimeFrame(String timeFrame) {
 		String startTimeString =  timeFrame.substring(0, 10);
 		String endTimeString = timeFrame.substring(17, 28);
@@ -30,7 +26,6 @@ public class SubtitleBlock {
 		this.endTime = stringToMilis(endTimeString);
 		
 	}
-
 	
 	public double getEndTime() {
 		return endTime;
@@ -43,8 +38,6 @@ public class SubtitleBlock {
 	public void setText(String text) {
 		this.text = text;
 	}
-	
-	
 	
 	public double stringToMilis(String timeString) {
 		int hour = Integer.parseInt(timeString.substring(0, 2));
