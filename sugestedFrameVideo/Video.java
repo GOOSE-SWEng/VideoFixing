@@ -1,11 +1,15 @@
-package sugestedFrameVideo;
+package media;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.SubScene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -20,55 +24,116 @@ import javafx.scene.media.MediaView;
 import javafx.scene.media.MediaPlayer.Status;
 import javafx.util.Duration;
 
+/**
+ * Class for the video player
+ * @author - Rimas Radziunas and Cezara-Lidia Jalba
+ * @version - 1.2
+ * @date - 20/04/20
+ */
 public class Video {
+	//global variables
+	private int xstart;
+	private int ystart;
+	private int startTime;
+	private int canvasWidth;
+	private int canvasHeight;
+	private String urlName;
+	private String subUrlName;
+	private Boolean loop;
+	private SubScene subScene;
+	boolean videoFail = false;
 
-	int xstart;
-	int ystart;
-	int startTime;
-	int canvasWidth;
-	int canvasHeight;
-	String urlName;
-	Boolean loop;
-	SubScene subScene;
-
-	private MediaPlayer mp;
+	private MediaPlayer mediaPlayer;
+	private Subtitles subtitleTrack = null;
 	private Duration totTime;
 	private Pane toolbarNode;
 	private Slider volumeSlider;
 	private Label currentTimeLabel;
 	private Label totTimeLabel;
 
-	public Video(String urlName, int startTime, Boolean loop, int xStart, int yStart, int canvasWidth, int canvasHeight)
+	/**
+	 * Method to create the video object
+	 * @param urlName - URL of video file to be played
+	 * @param subUrlName 
+	 * @param startTime - how long after the slide is opened should the video start
+	 * @param loop - should the video loop
+	 * @param xStart - x coordinate of the top left corner of the video object
+	 * @param yStart - y coordinate of the top left corner of the video object
+	 * @param canvasWidth - width of canvas
+	 * @param canvasHeight - height of canvas
+	 * @throws IOException - if video cannot be found
+	 */
+	public Video(String urlName, String subUrlName, int startTime, Boolean loop, int xStart, int yStart, int canvasWidth, int canvasHeight)
 			throws IOException {
-
 		// Loads the media player layout from a FXML file
-		BorderPane root = FXMLLoader.load(getClass().getClassLoader().getResource("videoPlayer.fxml"));
-
-		// creates a subscene
+		BorderPane root = FXMLLoader.load(getClass().getClassLoader().getResource("media/videoPlayer.fxml"));
+		this.urlName = urlName;
+		
+// creates a subscene
 		subScene = new SubScene(root, 600, 400);
-		// Set subscene position
-		subScene.setLayoutX(xStart);
-		subScene.setLayoutY(yStart);
+		//subScene.getRoot().maxHeight(subScene.getHeight());
+		//System.out.println("border pane height: " + root.getHeight());
+		//root.setMaxHeight(subScene.getHeight());//////////////////////
+		//root.setMaxWidth(subScene.getWidth());//////////////////////
+		//root.getCenter().maxHeight(subScene.getHeight()-50);///////////////////////////////
 
-		// Video control bar, retrieved from the root
+// Video control bar, retrieved from the root
 		toolbarNode = (Pane) root.getBottom();
+		//toolbarNode.setLayoutX(subScene.getHeight()-50);///////////////////////////
+		//System.out.println("toolba position: " + toolbarNode.getLayoutX());
+		
 		currentTimeLabel = (Label) toolbarNode.getChildren().get(7);
 		totTimeLabel = (Label) toolbarNode.getChildren().get(9);
-
-		// video media file
-		Media media = new Media(urlName);
-
-		// Create media player with the video media file
-		mp = new MediaPlayer(media);
-
-		// Volume slider
+		
+// video media file
+		Media media = null;
+		
+		if(urlName.startsWith("https://")) {
+			try {
+				media = new Media(urlName);
+			} catch (Exception e) {
+				videoFail = true;
+				//("Video file not found, will not be added to the presentation");
+				return;
+			}	
+		}
+		else if(urlName.startsWith("resources/")) {
+			try {
+				File vidFile = new File(urlName);
+				media = new Media(vidFile.toURI().toString());
+				
+				File track = new File(subUrlName);
+				subtitleTrack = new Subtitles(track);
+			} catch (Exception e) {
+				videoFail = true;
+				//("Video file not found, will not be added to the presentation");
+				return;
+			}
+		}
+		else {
+			//("Unknown video origin.");
+		}
+		if(media!= null) {
+			System.out.println("media file track: " + media.getTracks().size());
+		}
+		
+// Create media player with the video media file
+		mediaPlayer = new MediaPlayer(media);
+		
+//Subtitles--------------------------------------------------------------------------
+		Pane p = (Pane) root.getCenter();
+		Label subtitleLabel = (Label) p.getChildren().get(1);
+		subtitleLabel.layoutYProperty().bind(subScene.layoutYProperty().add(subScene.getHeight()/10*6));
+		
+		//p.setMaxHeight(subScene.getHeight()-100);
+		
+// Volume slider
 		volumeSlider = (Slider) toolbarNode.getChildren().get(6);
-		volumeSlider.setValue(mp.getVolume() * 100);
-
+		volumeSlider.setValue(mediaPlayer.getVolume() * 100);
 		volumeSlider.valueProperty().addListener(new InvalidationListener() {
 			@Override
 			public void invalidated(Observable arg0) {
-				mp.setVolume(volumeSlider.getValue() / 100);
+				mediaPlayer.setVolume(volumeSlider.getValue() / 100);
 			}
 		});
 
@@ -78,75 +143,84 @@ public class Video {
 
 		// Set video to loop
 		if (loop) {
-			mp.setCycleCount(MediaPlayer.INDEFINITE);
+			mediaPlayer.setCycleCount(MediaPlayer.INDEFINITE);
 		}
 
-		// Video control bar
-		toolbarNode = (Pane) root.getBottom();
 
-		// Playback slider
+// Playback slider
 		Slider playbackSlider = (Slider) toolbarNode.getChildren().get(5);
-
+		
 		// Set the current play time to the time specified by the play back slider
 		playbackSlider.valueProperty().addListener(new InvalidationListener() {
 			@Override
 			public void invalidated(Observable arg0) {
 
 				if (playbackSlider.isValueChanging() || playbackSlider.isPressed()) {
-					if (mp.getStatus() == Status.PLAYING || mp.getStatus() == Status.PAUSED) {
+					if (mediaPlayer.getStatus() == Status.PLAYING || mediaPlayer.getStatus() == Status.PAUSED) {
 
-						mp.seek(totTime.multiply(playbackSlider.getValue() / 100));
-						setTimeLabel(mp.getCurrentTime(), currentTimeLabel);
+						mediaPlayer.seek(totTime.multiply(playbackSlider.getValue() / 100));
+						setTimeLabel(mediaPlayer.getCurrentTime(), currentTimeLabel);
+
+						if(subtitleTrack != null) {
+							subtitleTrack.seekPosition(mediaPlayer.getCurrentTime().toMillis());
+							subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
+						}
+
 					}
 					// When the video is stopped and the slider is moved then set media player to
 					// paused since seek function cannot be used while the status is STOPPED
-					else if (mp.getStatus() == Status.STOPPED) {
-						mp.pause();
-						mp.seek(totTime.multiply(playbackSlider.getValue() / 100));
+					else if (mediaPlayer.getStatus() == Status.STOPPED) {
+						mediaPlayer.pause();
+						mediaPlayer.seek(totTime.multiply(playbackSlider.getValue() / 100));
+						
+						System.out.println("Current time: " + mediaPlayer.getCurrentTime() + "\n"+
+								"start time: " + subtitleTrack.getStartTimeOfText() + "\n" +
+								"end time: " + subtitleTrack.getEndTimeOfText());
+						
+						subtitleTrack.seekPosition(mediaPlayer.getCurrentTime().toMillis());
+						subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
 					}
 				}
 			}
 		});
 
 		// when the video is paused, change the icon of the play button to play icon
-		mp.setOnPaused(new Runnable() {
+		mediaPlayer.setOnPaused(new Runnable() {
 			@Override
 			public void run() {
 				Button play = (Button) toolbarNode.getChildren().get(0);
 				ImageView playImg = (ImageView) play.getGraphic();
 				playImg.setImage(new Image(getClass().getResourceAsStream("/graphics/play.png")));
-				setTimeLabel(mp.getCurrentTime(), currentTimeLabel);
+				setTimeLabel(mediaPlayer.getCurrentTime(), currentTimeLabel);
 			}
 		});
 
 		// Set on halted: when critical error occurs
-		mp.setOnHalted(new Runnable() {
+		mediaPlayer.setOnHalted(new Runnable() {
 			@Override
 			public void run() {
-				System.out.println("HALTED");
 			}
 		});
 
 		// when video is stopped, time should go back to 0
-		mp.setOnStopped(new Runnable() {
+		mediaPlayer.setOnStopped(new Runnable() {
 			@Override
 			public void run() {
 				playbackSlider.setValue(0);
 				// Sets the current time to 0
-				setTimeLabel(mp.getCurrentTime(), currentTimeLabel);
+				setTimeLabel(mediaPlayer.getCurrentTime(), currentTimeLabel);
 				Button play = (Button) toolbarNode.getChildren().get(0);
 				ImageView playImg = (ImageView) play.getGraphic();
-				//play button should have play icon on
 				playImg.setImage(new Image(getClass().getResourceAsStream("/graphics/play.png")));
 			}
 		});
 
 		// when the video is ready (loaded), set the total time of the video label
-		mp.setOnReady(new Runnable() {
+		mediaPlayer.setOnReady(new Runnable() {
 			public void run() {
 				Platform.runLater(new Runnable() {
 					public void run() {
-						totTime = mp.getMedia().getDuration();
+						totTime = mediaPlayer.getMedia().getDuration();
 						setTimeLabel(totTime, totTimeLabel);
 					}
 				});
@@ -154,18 +228,19 @@ public class Video {
 		});
 
 		// set the slider to the beginning after video ends and stop the player
-		mp.setOnEndOfMedia(new Runnable() {
+		mediaPlayer.setOnEndOfMedia(new Runnable() {
 			@Override
 			public void run() {
 				if (!loop) {
-					mp.stop();
+					mediaPlayer.stop();
+					mediaPlayer.seek(totTime.multiply(playbackSlider.getValue() / 100));
 				}
-				mp.seek(totTime.multiply(playbackSlider.getValue() / 100));
+				
 			}
 		});
 
 		// Set the play button to display pause icon when the video is playing
-		mp.setOnPlaying(new Runnable() {
+		mediaPlayer.setOnPlaying(new Runnable() {
 			@Override
 			public void run() {
 				Button play = (Button) toolbarNode.getChildren().get(0);
@@ -176,20 +251,36 @@ public class Video {
 
 		// Set the current time label and play back slider to follow the current time of
 		// the video being played
-		mp.currentTimeProperty().addListener(new InvalidationListener() {
+		mediaPlayer.currentTimeProperty().addListener(new InvalidationListener() {
 			@Override
 			public void invalidated(Observable arg0) {
-				Duration currentTime = mp.getCurrentTime();
+				Duration currentTime = mediaPlayer.getCurrentTime();
 				playbackSlider.setValue(currentTime.toMillis() / totTime.toMillis() * 100);
 				setTimeLabel(currentTime, currentTimeLabel);
 			}
 		});
+		
+		//If there is a subtitle track, listen for player time change to update the subtitles
+		if(subtitleTrack != null) {
+			mediaPlayer.currentTimeProperty().addListener(new InvalidationListener() {
+
+				@Override
+				public void invalidated(Observable arg0) {
+					subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
+				}
+			});
+		}
 
 		// Add media player to media view
-		Pane p = (Pane) root.getCenter();
-		p.getChildren().get(0);
 		MediaView mv = (MediaView) p.getChildren().get(0);
-		mv.setMediaPlayer(mp);
+		//Preserve ratio off so that the video would fill the player screen 
+		mv.setPreserveRatio(false);
+		mv.setMediaPlayer(mediaPlayer);
+		//Set mediaview to fit the subscene
+		//mv.setFitHeight(subScene.getHeight()-100);
+		//mv.setFitWidth(subScene.getWidth());
+		//System.out.println("mediaView fit height: " + mv.getFitHeight() + ", position y:" +mv.getLayoutY());
+		//mv.setLayoutX(0);/////////////////////////////////////////////////
 	}
 
 	public SubScene get() {
@@ -212,4 +303,46 @@ public class Video {
 			label.setText(min + ":" + sec);
 		}
 	}
+		
+	public void play() {
+		mediaPlayer.play();
+	}
+	public void stop() {
+		mediaPlayer.stop();
+	}
+	
+	public MediaPlayer getPlayer() {
+		return mediaPlayer;
+	}
+	
+	
+
+	public String formatTime(Duration time) {
+		String string;
+		//Duration timeD = new Duration(duration);
+		int min = (int) time.toMinutes();
+		int sec = (int) (time.toSeconds() - 60 * min);
+		int mili = (int) (time.toMillis() - 1000 * sec);
+		if (sec < 10) {
+			string = min + ":0" + sec + ":" + mili;
+		} else {
+			string = min + ":" + sec + ":" + mili;
+		}
+		return string;
+	}
+	
+	public String formatTime(Double time) {
+		String string;
+		Duration timeD = new Duration(time);
+		int min = (int) timeD.toMinutes();
+		int sec = (int) (timeD.toSeconds() - 60 * min);
+		int mili = (int) (timeD.toMillis() - 1000 * sec);
+		if (sec < 10) {
+			string = min + ":0" + sec + ":" + mili;
+		} else {
+			string = min + ":" + sec + ":" + mili;
+		}
+		return string;
+	}
+
 }
