@@ -100,12 +100,10 @@ public class Video {
 		else if(urlName.startsWith("resources/")) {
 			try {
 				File vidFile = new File(urlName);
-				media = new Media(vidFile.toURI().toString());
-				
-				File track = new File(subUrlName);
-				subtitleTrack = new Subtitles(track);
+				media = new Media(vidFile.toURI().toString());	
 			} catch (Exception e) {
 				videoFail = true;
+				System.out.println("failed");
 				//("Video file not found, will not be added to the presentation");
 				return;
 			}
@@ -113,6 +111,15 @@ public class Video {
 		else {
 			//("Unknown video origin.");
 		}
+		
+		
+		try {
+			File track = new File(subUrlName);
+			subtitleTrack = new Subtitles(track);
+		} catch (Exception e) {
+			System.out.println(" subfailed");
+		}
+	
 		if(media!= null) {
 			System.out.println("media file track: " + media.getTracks().size());
 		}
@@ -164,6 +171,7 @@ public class Video {
 						if(subtitleTrack != null) {
 							subtitleTrack.seekPosition(mediaPlayer.getCurrentTime().toMillis());
 							subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
+							System.out.println("playing/paused seting subs");
 						}
 
 					}
@@ -173,12 +181,13 @@ public class Video {
 						mediaPlayer.pause();
 						mediaPlayer.seek(totTime.multiply(playbackSlider.getValue() / 100));
 						
-						System.out.println("Current time: " + mediaPlayer.getCurrentTime() + "\n"+
-								"start time: " + subtitleTrack.getStartTimeOfText() + "\n" +
-								"end time: " + subtitleTrack.getEndTimeOfText());
 						
-						subtitleTrack.seekPosition(mediaPlayer.getCurrentTime().toMillis());
-						subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
+						if(subtitleTrack != null) {
+							System.out.println("stoped video, update subs");
+							subtitleTrack.seekPosition(mediaPlayer.getCurrentTime().toMillis());
+							subtitleTrack.setSubtitleText(subtitleLabel, mediaPlayer);
+						}
+						
 					}
 				}
 			}
@@ -262,6 +271,7 @@ public class Video {
 		
 		//If there is a subtitle track, listen for player time change to update the subtitles
 		if(subtitleTrack != null) {
+			System.out.println("setting curretn tim porperty for subs");
 			mediaPlayer.currentTimeProperty().addListener(new InvalidationListener() {
 
 				@Override
