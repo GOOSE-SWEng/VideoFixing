@@ -1,4 +1,4 @@
-package handlers;
+package media;
 
 public class SubtitleBlock {
 	private int index;
